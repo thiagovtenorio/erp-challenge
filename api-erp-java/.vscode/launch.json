@@ -1,0 +1,28 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Main",
+            "request": "launch",
+            "mainClass": "com.erp.app.Main",
+            "projectName": "erp"
+        },
+        {
+            "type": "java",
+            "name": "Main",
+            "request": "launch",
+            "mainClass": "Main",
+            "projectName": "erp"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ErpApplication<erp>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.erp.app.ErpApplication",
+            "projectName": "erp",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
