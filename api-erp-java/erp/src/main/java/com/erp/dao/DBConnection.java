@@ -1,7 +1,7 @@
 package com.erp.dao;
 
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -15,7 +15,7 @@ public class DBConnection {
     public DBConnection() {
         Properties properties = new Properties();
 
-        try (FileInputStream input = new FileInputStream("config.properties")) {
+        try (InputStream input = DBConnection.class.getClassLoader().getResourceAsStream("config.properties")) {
             properties.load(input);
     
             this.jdbcURL = properties.getProperty("database.url");

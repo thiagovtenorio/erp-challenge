@@ -1,4 +1,4 @@
-module db.go
+module api-erp-go
 
 go 1.23.6
 

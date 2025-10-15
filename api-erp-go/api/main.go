@@ -1,6 +1,8 @@
 package main
 
 import (
+	"api-erp-go/model"
+	assignmentRepo "api-erp-go/repository"
 	"fmt"
 	"io"
 	"log"
@@ -12,7 +14,6 @@ func main() {
 	// Register a handler function for the "/post" path
 	http.HandleFunc("/v1/assignments/notify", handlePostRequest)
 
-	//r := router.New()
 	fmt.Println("Server Running 8081 !")
 	log.Fatal(http.ListenAndServe(":8081", nil))
 
@@ -39,4 +40,8 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 	// Send a response back to the client
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "Successfully received POST request with body: %s", string(body))
+
+	delivery := model.ParseJsonToStruct(string(body))
+
+	assignmentRepo.Insert(delivery)
 }
