@@ -2,7 +2,7 @@ package main
 
 import (
 	"api-erp-go/model"
-	assignmentRepo "api-erp-go/repository"
+	assignment "api-erp-go/repository"
 	"fmt"
 	"io"
 	"log"
@@ -43,5 +43,5 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 
 	delivery := model.ParseJsonToStruct(string(body))
 
-	assignmentRepo.Insert(delivery)
+	assignment.AssignDelivery(delivery)
 }

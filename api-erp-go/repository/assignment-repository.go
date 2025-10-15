@@ -5,17 +5,20 @@ import (
 	"api-erp-go/model"
 	"context"
 	"fmt"
+	"log"
+
+	uuid "github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// INSERT INTO delivery_assignments(driver_id, vehicle_id, status, route_description)
-// VALUES (driver.id, vehicle.id, "ASSIGNED", "Entrega de produtos frágeis na região central") .
-func Insert(delivery model.Delivery) {
-	conn, _ := db.Connect()
+func AssignDelivery(delivery model.Delivery) {
 
-	sqlStatement := `INSERT INTO delivery_assignments(driver_id, vehicle_id, status, route_description) 
-		VALUES ($1, (select id from vehicles where plate_number = $2), $3, $4)`
-
-	_, err := conn.Exec(context.Background(), sqlStatement, delivery.DriverUUID, delivery.VehiclePlate, delivery.Status, delivery.RouteDescription)
+	// Establish a pool connection
+	pool, err := pgxpool.New(context.Background(), db.GetConnString())
+	if err != nil {
+		log.Fatalf("Unable to create connection pool: %v\n", err)
+	}
+	defer pool.Close()
 
 	if err != nil {
 		fmt.Printf("erro executando insert " + err.Error())
@@ -23,8 +26,77 @@ func Insert(delivery model.Delivery) {
 		fmt.Printf("inserido com sucesso")
 	}
 
-}
+	if err := execAssignStatements(context.Background(), pool, delivery); err != nil {
+		log.Printf("Assign Delivery FAILED: %v\n", err)
+	}
 
-//UPDATE drivers SET status = "IN_TRANSIT" WHERE id = driver.id
-//UPDATE vehicle SET status = "IN_TRANSIT" WHERE id = vehicle.id.
-//INSERT INTO delivery_invoices (delivery_assignments_id, invoice) VALUES (deliveryAssignment.id, invoice)
+}
+func execAssignStatements(ctx context.Context, pool *pgxpool.Pool, delivery model.Delivery) error {
+	// 1. Begin the Transaction
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	// 2. Defer Rollback
+	// Use a named return value or an outer variable to capture the commit error.
+	defer func() {
+		if r := recover(); r != nil {
+			// Handle panic inside the transaction
+			tx.Rollback(ctx)
+			panic(r)
+		} else if err != nil {
+			// Rollback if an error occurred in the body
+			tx.Rollback(ctx)
+		} else {
+			// If no error, attempt to commit
+			if commitErr := tx.Commit(ctx); commitErr != nil {
+				// Capture commit error
+				err = fmt.Errorf("transaction commit failed: %w", commitErr)
+			}
+		}
+	}()
+
+	var deliveryAssignmentId uuid.UUID
+
+	err = pool.QueryRow(
+		ctx,
+		`INSERT INTO delivery_assignments(driver_id, vehicle_id, status, route_description) 
+		VALUES ($1, (select id from vehicles where plate_number = $2), $3, $4) RETURNING id`,
+		delivery.DriverUUID, delivery.VehiclePlate, delivery.Status, delivery.RouteDescription,
+	).Scan(&deliveryAssignmentId)
+
+	if err != nil {
+		return fmt.Errorf("Failed to insert on delivery_assignments %w", err)
+	}
+
+	_, err = tx.Exec(
+		ctx,
+		`UPDATE drivers SET status = 'IN_TRANSIT' WHERE id = $1`,
+		delivery.DriverUUID,
+	)
+	if err != nil {
+		return fmt.Errorf("Failed to update driver %w", err)
+	}
+
+	_, err = tx.Exec(
+		ctx,
+		`UPDATE vehicles SET status = 'IN_TRANSIT' WHERE plate_number = $1`,
+		delivery.VehiclePlate,
+	)
+	if err != nil {
+		return fmt.Errorf("Failed to update on vehicle %w", err)
+	}
+
+	for _, invoice := range delivery.Invoices {
+		_, err = tx.Exec(
+			ctx,
+			`INSERT INTO delivery_invoices (delivery_assignment_id, invoice_number) VALUES ($1, $2)`,
+			deliveryAssignmentId, invoice,
+		)
+		if err != nil {
+			return fmt.Errorf("Failed to insert on delivery_invoices %w", err)
+		}
+	}
+
+	return nil
+}

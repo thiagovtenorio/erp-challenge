@@ -13,3 +13,7 @@ func Connect() (*pgx.Conn, error) {
 	}
 	return conn, nil
 }
+
+func GetConnString() string {
+	return "postgres://postgres:1234@localhost:5432/erp"
+}
