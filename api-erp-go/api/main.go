@@ -3,6 +3,7 @@ package main
 import (
 	"api-erp-go/model"
 	assignment "api-erp-go/repository"
+	validation "api-erp-go/validation"
 	"fmt"
 	"io"
 	"log"
@@ -37,11 +38,18 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 	// Print the received body (for demonstration purposes)
 	fmt.Printf("Received POST request with body: %s\n", string(body))
 
-	// Send a response back to the client
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Successfully received POST request with body: %s", string(body))
-
 	delivery := model.ParseJsonToStruct(string(body))
 
-	assignment.AssignDelivery(delivery)
+	isValid, validationErr := validation.IsValid(delivery)
+
+	if isValid {
+		assignment.AssignDelivery(delivery)
+
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "Delivery assigned successfully")
+	} else {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		fmt.Fprintf(w, "%s", validationErr.Error())
+	}
+
 }
