@@ -100,3 +100,44 @@ func execAssignStatements(ctx context.Context, pool *pgxpool.Pool, delivery mode
 
 	return nil
 }
+func IsDriverAvailable(id string) (bool, error) {
+	// Establish a pool connection
+	pool, err := pgxpool.New(context.Background(), db.GetConnString())
+	if err != nil {
+		log.Fatalf("Unable to create connection pool: %v\n", err)
+	}
+	defer pool.Close()
+
+	sql := `SELECT status FROM drivers WHERE id = $1`
+
+	// Execute the Query
+	rows, err := pool.Query(context.Background(), sql, id)
+
+	if err != nil {
+		return false, fmt.Errorf("query failed: %w", err)
+	}
+	// IMPORTANT: Close the rows when done to release the connection back to the pool
+	defer rows.Close()
+
+	var driverStatus string
+	// Iterate and scan results
+	for rows.Next() {
+		if err := rows.Scan(&driverStatus); err != nil {
+			return false, fmt.Errorf("row scan failed: %w", err)
+		}
+	}
+
+	// Check for any errors that occurred during row iteration
+	if err := rows.Err(); err != nil {
+		return false, fmt.Errorf("row iteration error: %w", err)
+	}
+
+	return driverStatus == "AVAILABLE", nil
+}
+
+// func isVehicleAvailable() bool {
+// 	sql := `SELECT status FROM vehicles WHERE id = $1`
+
+// 	// Execute the Query
+// 	rows, err := pool.Query(ctx, sql, minID)
+// }
